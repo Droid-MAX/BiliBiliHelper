@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 import sys
 sys.path.append(sys.path[0] + "/Src")
@@ -51,84 +52,83 @@ MonitorServer = MonitorServer(config["Server"]["ADDRESS"], config["Server"]["PAS
 
 parser = OptionParser()
 parser.add_option("-d", "--disable-console",
-                  action="store_true", dest="disable_console", default=False,
-                  help="disable console")
+    action="store_true", dest="disable_console", default=False,
+    help="disable console")
 (options, args) = parser.parse_args()
 
-# 开启时清理日志
-Log.clean_log(startup=True)
+def main():
+    # 开启时清理日志
+    Log.clean_log(startup=True)
 
-def signal_handler(signal, frame):
-    os._exit(0)
+    def signal_handler(signal, frame):
+        os._exit(0)
 
-print("""\033[32;1m
- ______     __     __         __     ______     __     __         __     __  __     ______     __         ______   ______     ______    
-/\  == \   /\ \   /\ \       /\ \   /\  == \   /\ \   /\ \       /\ \   /\ \_\ \   /\  ___\   /\ \       /\  == \ /\  ___\   /\  == \   
-\ \  __<   \ \ \  \ \ \____  \ \ \  \ \  __<   \ \ \  \ \ \____  \ \ \  \ \  __ \  \ \  __\   \ \ \____  \ \  _-/ \ \  __\   \ \  __<   
- \ \_____\  \ \_\  \ \_____\  \ \_\  \ \_____\  \ \_\  \ \_____\  \ \_\  \ \_\ \_\  \ \_____\  \ \_____\  \ \_\    \ \_____\  \ \_\ \_\ 
-  \/_____/   \/_/   \/_____/   \/_/   \/_____/   \/_/   \/_____/   \/_/   \/_/\/_/   \/_____/   \/_____/   \/_/     \/_____/   \/_/ /_/ 
-\033[0m""")
+    if config["Other"]["INFO_MESSAGE"] != "False":
+        Log.info("BiliBiliHelper Python " + version)
+        Log.info("Powered By TheWanderingCoel with love❤️")
 
-if config["Other"]["INFO_MESSAGE"] != "False":
-    Log.info("BiliBiliHelper Python " + version)
+    if config["Other"]["SENTENCE"] != "False":
+        Log.info(Sentence().get_sentence())
 
-Log.info("Powered By TheWanderingCoel with love❤️")
+    # 检查Config
+    ConfigCheck()
 
-if config["Other"]["SENTENCE"] != "False":
-    Log.info(Sentence().get_sentence())
+    # 注册信号
+    signal.signal(signal.SIGINT, signal_handler)
 
-# 检查Config
-ConfigCheck()
+    loop = asyncio.get_event_loop()
 
-# 注册信号
-signal.signal(signal.SIGINT, signal_handler)
+    timer = Timer(loop)
+    console = Console.Console(loop)
 
-loop = asyncio.get_event_loop()
+    area_ids = [1,2,3,4,5,6,]
+    Statistics(len(area_ids))
 
-timer = Timer(loop)
-console = Console.Console(loop)
+    daily_tasks = [
+        Capsule.work(),
+        CaseJudger.work(),
+        Coin2Silver.work(),
+        DailyBag.work(),
+        GiftSend.work(),
+        Group.work(),
+        Heart.work(),
+        Silver2Coin.work(),
+        SilverBox.work(),
+        Task.work()
+    ]
+    server_tasks = [
+        MonitorServer.run_forever()
+    ]
+    danmu_tasks = [Danmu_Monitor.run_Danmu_Raffle_Handler(i) for i in area_ids]
+    other_tasks = [
+        rafflehandler.run()
+    ]
 
-area_ids = [1,2,3,4,5,6,]
-Statistics(len(area_ids))
+    api_thread = threading.Thread(target=API.work)
+    api_thread.start()
 
-daily_tasks = [
-    Capsule.work(),
-    CaseJudger.work(),
-    Coin2Silver.work(),
-    DailyBag.work(),
-    GiftSend.work(),
-    Group.work(),
-    Heart.work(),
-    Silver2Coin.work(),
-    SilverBox.work(),
-    Task.work()
-]
-server_tasks = [
-    MonitorServer.run_forever()
-]
-danmu_tasks = [Danmu_Monitor.run_Danmu_Raffle_Handler(i) for i in area_ids]
-other_tasks = [
-    rafflehandler.run()
-]
+    if not options.disable_console:
+        console_thread = threading.Thread(target=console.cmdloop)
+        console_thread.start()
 
-api_thread = threading.Thread(target=API.work)
-api_thread.start()
+    # 先登陆一次,防止速度太快导致抽奖模块出错
+    Auth.work()
 
-if not options.disable_console:
-    console_thread = threading.Thread(target=console.cmdloop)
-    console_thread.start()
+    if config["Function"]["RAFFLE_HANDLER"] != "False":
+        loop.run_until_complete(asyncio.wait(daily_tasks+server_tasks+danmu_tasks+other_tasks))
+    else:
+        loop.run_until_complete(asyncio.wait(daily_tasks))
 
-# 先登陆一次,防止速度太快导致抽奖模块出错
-Auth.work()
+    api_thread.join()
 
-if config["Function"]["RAFFLE_HANDLER"] != "False":
-    loop.run_until_complete(asyncio.wait(daily_tasks+server_tasks+danmu_tasks+other_tasks))
-else:
-    loop.run_until_complete(asyncio.wait(daily_tasks))
+    if not options.disable_console:
+        console_thread.join()
 
-api_thread.join()
+    loop.close()
 
-if not options.disable_console:
-    console_thread.join()
+if __name__ == '__main__':
+    try:
+        main()
+    except (KeyboardInterrupt, SystemExit):
+        pass
 
-loop.close()
